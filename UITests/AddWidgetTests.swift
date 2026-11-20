@@ -126,10 +126,22 @@ final class AddWidgetTests: XCTestCase {
       sleep(3)
     }
     snap(picked ? "after-pick" : "not-picked")
-    tapWhere("label ==[c] %@ OR identifier ==[c] %@", ["Close", "close-button"], timeout: 3)
+    // the gallery sheet stays open over Done: pull it down by its grabber, then press Done
+    for _ in 0..<3 {
+      let grab = sb.buttons["Sheet Grabber"]
+      if !grab.exists { break }
+      let g = grab.frame
+      let from = sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: g.midX, dy: g.midY))
+      from.press(forDuration: 0.1, thenDragTo: sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: g.midX, dy: 950)))
+      sleep(2)
+    }
     snap("gallery-closed")
-    tapWhere("identifier == %@ OR label ==[c] %@", ["editing-done", "Done"], timeout: 4)
-    sleep(2)
+    let done = sb.descendants(matching: .any).matching(identifier: "editing-done").firstMatch
+    if done.waitForExistence(timeout: 4) {
+      let d = done.frame
+      sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: d.midX, dy: d.midY)).tap()
+    }
+    sleep(3)
     snap("done")
     // any follow-up sheet after Done (wallpaper pair, etc.)
     if tapWhere("label ==[c] %@ OR label ==[c] %@", ["Set as Wallpaper Pair", "Done"], timeout: 2) { snap("follow-up") }
