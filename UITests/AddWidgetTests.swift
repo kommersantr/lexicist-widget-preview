@@ -126,7 +126,16 @@ final class AddWidgetTests: XCTestCase {
       sleep(3)
     }
     snap(picked ? "after-pick" : "not-picked")
-    // the gallery sheet stays open over Done: pull it down by its grabber, then press Done
+    // first the Lexicist card with its cross, then the "Add Widgets" list: both cover Done
+    for _ in 0..<2 {
+      let x = sb.buttons.matching(NSPredicate(format: "label ==[c] %@", "close")).firstMatch
+      if x.waitForExistence(timeout: 3) {
+        let f = x.frame
+        sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
+        sleep(2)
+      } else { break }
+    }
+    snap("card-closed")
     for _ in 0..<3 {
       let grab = sb.buttons["Sheet Grabber"]
       if !grab.exists { break }
