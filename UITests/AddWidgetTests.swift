@@ -77,29 +77,42 @@ final class AddWidgetTests: XCTestCase {
     }
     snap("gallery")
     let galleryOpen = sb.searchFields.firstMatch.exists || sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Lexicist'")).count > 0
-    // Lexicist in the gallery: as it is, after scrolling, or by search
-    var found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 3)
-    var tries = 0
-    while galleryOpen && !found && tries < 4 {
-      let sheet = sb.scrollViews.firstMatch
-      if sheet.exists { sheet.swipeUp() } else { sb.swipeUp() }
-      sleep(2)
-      tries += 1
-      found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 2)
-    }
-    if !found {
-      let search = sb.searchFields.firstMatch
-      if search.waitForExistence(timeout: 3) {
-        search.tap()
-        search.typeText("Lexicist")
+    // Lexicist in the gallery: wait until the list stops moving, then tap its row by exact name
+    sleep(3)
+    var opened = false
+    for attempt in 0..<3 {
+      let cell = sb.cells.matching(NSPredicate(format: "label ==[c] %@", "Lexicist")).firstMatch
+      if !cell.waitForExistence(timeout: 4) {
+        let sheet = sb.scrollViews.firstMatch
+        if sheet.exists { sheet.swipeUp() }
         sleep(2)
-        found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 3)
+        continue
       }
+      sleep(1)
+      cell.tap()
+      sleep(3)
+      // our page shows the widget gallery for Lexicist; anything else means the tap hit another row
+      let gallery = sb.scrollViews["complicationGalleryScrollView"]
+      let mine = gallery.exists && sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Lexicist", "Today")).count > 0
+      snap("opened-row-\(attempt)")
+      if mine { opened = true; break }
+      tapWhere("label ==[c] %@", ["close"], timeout: 2)
+      sleep(2)
     }
-    snap(found ? "lexicist-widgets" : "lexicist-not-found")
-    // the widget itself ("Today's words"); the rectangular one comes first
-    tapWhere("label CONTAINS[c] %@ OR label CONTAINS[c] %@", ["Today", "words"], timeout: 4)
-    snap("after-pick")
+    // tap the widget preview: the first preview tile in the gallery, else the middle of the preview row
+    let sv = sb.scrollViews["complicationGalleryScrollView"]
+    var picked = false
+    if opened && sv.exists {
+      let top = sv.frame.minY
+      let tiles = sv.descendants(matching: .any).allElementsBoundByIndex.filter {
+        let f = $0.frame
+        return f.height > 40 && f.height < 150 && f.width > 40 && f.width < 300 && f.minY > top + 80
+      }
+      if let t = tiles.first(where: { $0.isHittable }) { t.tap(); picked = true }
+      if !picked { sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: sv.frame.midX, dy: top + 200)).tap(); picked = true }
+      sleep(3)
+    }
+    snap(picked ? "after-pick" : "not-picked")
     tapWhere("label ==[c] %@ OR identifier ==[c] %@", ["Close", "close-button"], timeout: 3)
     snap("gallery-closed")
     tapWhere("identifier == %@ OR label ==[c] %@", ["editing-done", "Done"], timeout: 4)
