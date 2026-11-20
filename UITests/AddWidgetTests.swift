@@ -65,7 +65,13 @@ final class AddWidgetTests: XCTestCase {
         sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).press(forDuration: 2.5)
       }
       sleep(3)
-      tapWhere("label ==[c] %@", ["Lock Screen"], timeout: 1)
+      // iOS 18 asks which to customize: the Lock Screen card on the left
+      let lockCard = sb.descendants(matching: .any).matching(NSPredicate(format: "label ==[c] %@ OR label ==[c] %@", "Customize Lock Screen Wallpaper", "Lock Screen")).firstMatch
+      if lockCard.waitForExistence(timeout: 2) {
+        let c = lockCard.frame
+        sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: c.midX, dy: c.midY)).tap()
+        sleep(3)
+      }
       _ = editorDone.waitForExistence(timeout: 3)
     }
     snap("editing")
