@@ -114,8 +114,8 @@ final class AddWidgetTests: XCTestCase {
       cell.tap()
       sleep(3)
       // our page shows the widget gallery for Lexicist; anything else means the tap hit another row
-      let gallery = sb.scrollViews["complicationGalleryScrollView"]
-      let mine = gallery.exists && sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Lexicist", "Today")).count > 0
+      // iOS 18 and 26 both show the widget as a button «Lexicist, Today’s words»
+      let mine = sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", "Today")).count > 0
       snap("opened-row-\(attempt)")
       if mine { opened = true; break }
       tapWhere("label ==[c] %@", ["close"], timeout: 2)
@@ -124,7 +124,14 @@ final class AddWidgetTests: XCTestCase {
     // tap the widget preview: the first preview tile in the gallery, else the middle of the preview row
     let sv = sb.scrollViews["complicationGalleryScrollView"]
     var picked = false
-    if opened && sv.exists {
+    let widgetButton = sb.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Today")).firstMatch
+    if opened && widgetButton.exists {
+      let b = widgetButton.frame
+      sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: b.midX, dy: b.midY)).tap()
+      picked = true
+      sleep(3)
+    }
+    if opened && !picked && sv.exists {
       let top = sv.frame.minY
       let tiles = sv.descendants(matching: .any).allElementsBoundByIndex.filter {
         let f = $0.frame
