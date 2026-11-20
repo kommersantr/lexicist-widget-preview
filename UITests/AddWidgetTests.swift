@@ -1,9 +1,9 @@
 import XCTest
 
-// Puts the Lexicist widget on the simulator's Lock Screen the way a person would: long press, Customize, Lock Screen,
-// the widget area, Lexicist, the rectangular widget, Done. Every step leaves a screenshot and the SpringBoard tree as
-// attachments, so a failed step can be read from the result bundle and fixed. The test never fails on a missing button;
-// it tries the next way and goes on, so one run shows as much as possible.
+// Puts the Lexicist widget on the simulator's Lock Screen the way a person would: long press, Customize, the widget area
+// ("Add Widget"), Lexicist in the gallery, the "Today's words" widget, Close, Done. Every step leaves a screenshot and the
+// SpringBoard tree as attachments, so a failed step can be read from the result bundle and fixed. The test never fails on a
+// missing button; it goes on, so one run shows as much as possible.
 final class AddWidgetTests: XCTestCase {
   let sb = XCUIApplication(bundleIdentifier: "com.apple.springboard")
   var step = 0
@@ -23,19 +23,16 @@ final class AddWidgetTests: XCTestCase {
     }
   }
 
+  // taps the first hittable element whose label or identifier matches; true if something was tapped
   @discardableResult
-  func tapFirst(_ labels: [String], timeout: TimeInterval = 4) -> Bool {
-    for l in labels {
-      let q = sb.descendants(matching: .any).matching(NSPredicate(format: "label ==[c] %@ OR identifier ==[c] %@", l, l)).firstMatch
-      if q.waitForExistence(timeout: timeout), q.isHittable { q.tap(); sleep(2); return true }
+  func tapWhere(_ format: String, _ args: [Any], timeout: TimeInterval = 4) -> Bool {
+    let q = sb.descendants(matching: .any).matching(NSPredicate(format: format, argumentArray: args))
+    _ = q.firstMatch.waitForExistence(timeout: timeout)
+    let n = min(q.count, 12)
+    for i in 0..<n {
+      let e = q.element(boundBy: i)
+      if e.exists && e.isHittable { e.tap(); sleep(2); return true }
     }
-    return false
-  }
-
-  @discardableResult
-  func tapContaining(_ text: String, timeout: TimeInterval = 4) -> Bool {
-    let q = sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
-    if q.waitForExistence(timeout: timeout), q.isHittable { q.tap(); sleep(2); return true }
     return false
   }
 
@@ -48,59 +45,51 @@ final class AddWidgetTests: XCTestCase {
     snap("app", tree: false)
     XCUIDevice.shared.press(.home)
     sleep(2)
-    // lock, then wake to the Lock Screen
     XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton"))
     sleep(2)
     XCUIDevice.shared.press(.home)
     sleep(3)
-    snap("lock")
-    // long press the Lock Screen to edit it
+    snap("lock", tree: false)
     sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).press(forDuration: 2.5)
     sleep(3)
-    snap("after-long-press")
-    if !tapFirst(["Customize", "Customise"]) { tapContaining("Customi") }
+    tapWhere("label ==[c] %@ OR label ==[c] %@", ["Customize", "Customise"])
     sleep(2)
-    snap("after-customize")
-    // iOS asks which to customize: the Lock Screen (left) or the Home Screen
-    if !tapFirst(["Lock Screen"]) {
-      sb.coordinate(withNormalizedOffset: CGVector(dx: 0.28, dy: 0.5)).tap()
-      sleep(2)
-    }
-    snap("editing-lock-screen")
+    tapWhere("label ==[c] %@", ["Lock Screen"], timeout: 2)
+    snap("editing")
     // the widget area under the clock
-    if !tapContaining("Add Widgets") && !tapContaining("widget") {
-      sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.36)).tap()
+    tapWhere("identifier == %@ OR label ==[c] %@", ["grouped-widgets-reticle-view", "Add Widget"], timeout: 5)
+    sleep(2)
+    snap("gallery")
+    // Lexicist in the gallery: as it is, after scrolling, or by search
+    var found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 3)
+    var tries = 0
+    while !found && tries < 4 {
+      let sheet = sb.scrollViews.firstMatch
+      if sheet.exists { sheet.swipeUp() } else { sb.swipeUp() }
       sleep(2)
+      tries += 1
+      found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 2)
     }
-    snap("widget-gallery")
-    // find Lexicist in the gallery: by its name, else by search
-    if !tapContaining("Lexicist", timeout: 3) {
+    if !found {
       let search = sb.searchFields.firstMatch
       if search.waitForExistence(timeout: 3) {
         search.tap()
         search.typeText("Lexicist")
         sleep(2)
-        snap("searched")
-        tapContaining("Lexicist", timeout: 3)
-      } else {
-        sb.swipeUp()
-        sleep(2)
-        snap("scrolled")
-        tapContaining("Lexicist", timeout: 3)
+        found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 3)
       }
     }
-    snap("lexicist-widgets")
-    // the first widget preview of Lexicist (rectangular comes first, then inline)
-    let preview = sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Word' OR label CONTAINS[c] 'Lexicist'")).element(boundBy: 0)
-    if preview.waitForExistence(timeout: 3), preview.isHittable { preview.tap(); sleep(2) }
+    snap(found ? "lexicist-widgets" : "lexicist-not-found")
+    // the widget itself ("Today's words"); the rectangular one comes first
+    tapWhere("label CONTAINS[c] %@ OR label CONTAINS[c] %@", ["Today", "words"], timeout: 4)
     snap("after-pick")
-    // close the gallery and finish editing
-    tapFirst(["Close", "Dismiss"])
+    tapWhere("label ==[c] %@ OR identifier ==[c] %@", ["Close", "close-button"], timeout: 3)
     snap("gallery-closed")
-    tapFirst(["Done"])
+    tapWhere("identifier == %@ OR label ==[c] %@", ["editing-done", "Done"], timeout: 4)
     sleep(2)
     snap("done")
-    // back on the Lock Screen with the widget
+    // any follow-up sheet after Done (wallpaper pair, etc.)
+    if tapWhere("label ==[c] %@ OR label ==[c] %@", ["Set as Wallpaper Pair", "Done"], timeout: 2) { snap("follow-up") }
     XCUIDevice.shared.press(.home)
     sleep(2)
     XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton"))
