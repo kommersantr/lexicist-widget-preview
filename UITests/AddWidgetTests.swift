@@ -63,7 +63,18 @@ final class AddWidgetTests: XCTestCase {
       let f = reticle.frame
       sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
     }
+    // the sheet opens half high and fills in a few seconds later; pull it up and wait for its content
     sleep(4)
+    let grabber = sb.buttons["Sheet Grabber"]
+    if grabber.waitForExistence(timeout: 3) {
+      let g = grabber.frame
+      sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: g.midX, dy: g.midY))
+        .press(forDuration: 0.1, thenDragTo: sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: g.midX, dy: 120)))
+    }
+    for _ in 0..<6 {
+      if sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Lexicist' OR label CONTAINS[c] 'Weather' OR label CONTAINS[c] 'Calendar,'")).count > 0 { break }
+      sleep(3)
+    }
     snap("gallery")
     let galleryOpen = sb.searchFields.firstMatch.exists || sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Lexicist'")).count > 0
     // Lexicist in the gallery: as it is, after scrolling, or by search
