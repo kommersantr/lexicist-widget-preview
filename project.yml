@@ -1,0 +1,73 @@
+name: LexicistPreview
+options:
+  bundleIdPrefix: com.lexicist
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    MARKETING_VERSION: "1.1.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Lexicist:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: ["*.entitlements"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lexicist.preview
+        PRODUCT_NAME: Lexicist
+        CODE_SIGN_ENTITLEMENTS: App/App.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Lexicist
+    dependencies:
+      - target: LexicistWidget
+  LexicistWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+        excludes: ["*.entitlements", "Info.plist"]
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Lexicist
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        UIAppFonts:
+          - LexJost-Regular.ttf
+          - LexJost-Medium.ttf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lexicist.preview.widget
+        CODE_SIGN_ENTITLEMENTS: Widget/Widget.entitlements
+        ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME: widgetBackground
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: accent
+  LexicistUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Lexicist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lexicist.preview.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Lexicist
+schemes:
+  Lexicist:
+    build:
+      targets:
+        Lexicist: all
+        LexicistUITests: [test]
+    test:
+      targets:
+        - LexicistUITests

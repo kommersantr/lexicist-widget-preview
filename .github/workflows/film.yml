@@ -1,0 +1,69 @@
+name: film
+# Films the Lexicist Lock Screen widget in the iOS Simulator as the hour turns 10:00, 11:00 and 12:00, for the App Store preview.
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  film:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: brew install xcodegen
+      - name: Project
+        run: xcodegen generate
+      - name: Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];c=sorted((rt,x['udid'],x['name']) for rt,v in d.items() if 'iOS' in rt for x in v if 'Pro Max' in x['name']);print(c[-1][1]);print(c[-1][2],c[-1][0],file=sys.stderr)")
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          xcrun simctl boot $UDID
+          xcrun simctl bootstatus $UDID -b
+      - name: Clock to 09:45 UTC today, before the widget makes its timeline
+        run: |
+          sudo systemsetup -setusingnetworktime off || true
+          D=$(date -u +%m%d); Y=$(date -u +%Y)
+          sudo date -u ${D}0945${Y}.00
+          date -u
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project LexicistPreview.xcodeproj -scheme Lexicist -destination "id=$UDID" -derivedDataPath DD | tail -40
+      - name: Status bar
+        run: xcrun simctl status_bar $UDID override --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3 --dataNetwork wifi || true
+      - name: Put the widget on the Lock Screen
+        continue-on-error: true
+        run: xcodebuild test-without-building -project LexicistPreview.xcodeproj -scheme Lexicist -destination "id=$UDID" -derivedDataPath DD -resultBundlePath R.xcresult | tail -40
+      - name: Steps out of the result bundle
+        if: always()
+        run: |
+          mkdir -p out/steps
+          xcrun xcresulttool export attachments --path R.xcresult --output-path out/steps || true
+          ls out/steps | head -60
+      - name: Film the hour changes
+        if: always()
+        run: |
+          D=$(date -u +%m%d); Y=$(date -u +%Y)
+          xcrun simctl io $UDID screenshot out/before.png || true
+          xcrun simctl io $UDID recordVideo --codec=h264 --force out/hours.mp4 &
+          REC=$!
+          sleep 3
+          for H in 09 10 11; do
+            sudo date -u ${D}${H}59${Y}.40
+            sleep 8
+            xcrun simctl io $UDID screenshot out/h${H}59.png || true
+            sleep 22
+            xcrun simctl io $UDID screenshot out/h${H}after.png || true
+          done
+          kill -INT $REC
+          sleep 6
+          ls -la out
+      - name: Clock back
+        if: always()
+        run: sudo sntp -sS time.apple.com || sudo systemsetup -setusingnetworktime on || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: film
+          path: out/
+          retention-days: 7
