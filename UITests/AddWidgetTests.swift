@@ -71,10 +71,13 @@ final class AddWidgetTests: XCTestCase {
     snap("editing")
     // the widget area under the clock
     // a real touch in the middle of the "Add Widget" area (a tap on the element itself did not open the gallery)
-    let reticle = sb.descendants(matching: .any).matching(identifier: "grouped-widgets-reticle-view").firstMatch
+    // iOS 26 names the area grouped-widgets-reticle-view; iOS 18 shows an «Add Widgets» box under the clock
+    let reticle = sb.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ OR label CONTAINS[c] %@", "grouped-widgets-reticle-view", "Add Widget")).firstMatch
     if reticle.waitForExistence(timeout: 5) {
       let f = reticle.frame
       sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
+    } else {
+      sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30)).tap()
     }
     // the sheet opens half high and fills in a few seconds later; pull it up and wait for its content
     sleep(4)
