@@ -31,16 +31,6 @@ jobs:
           xcodebuild build-for-testing -project LexicistPreview.xcodeproj -scheme Lexicist -destination "id=$UDID" -derivedDataPath DD | tail -40
       - name: Status bar
         run: xcrun simctl status_bar $UDID override --batteryState charged --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3 --dataNetwork wifi || true
-      - name: Is the widget registered
-        continue-on-error: true
-        run: |
-          APP=$(find DD/Build/Products -name "Lexicist.app" -path "*iphonesimulator*" | head -1)
-          xcrun simctl install $UDID "$APP"
-          ls "$APP/PlugIns" || true
-          codesign -d --entitlements :- "$APP/PlugIns/LexicistWidget.appex" 2>/dev/null | head -20 || true
-          xcrun simctl launch $UDID com.lexicist.preview || true
-          sleep 5
-          xcrun simctl spawn $UDID pluginkit -m -v -p com.apple.widgetkit-extension 2>&1 | head -20 || true
       - name: Put the widget on the Lock Screen
         continue-on-error: true
         run: xcodebuild test-without-building -project LexicistPreview.xcodeproj -scheme Lexicist -destination "id=$UDID" -derivedDataPath DD -resultBundlePath R.xcresult | tail -40
