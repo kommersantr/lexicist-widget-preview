@@ -57,13 +57,19 @@ final class AddWidgetTests: XCTestCase {
     tapWhere("label ==[c] %@", ["Lock Screen"], timeout: 2)
     snap("editing")
     // the widget area under the clock
-    tapWhere("identifier == %@ OR label ==[c] %@", ["grouped-widgets-reticle-view", "Add Widget"], timeout: 5)
-    sleep(2)
+    // a real touch in the middle of the "Add Widget" area (a tap on the element itself did not open the gallery)
+    let reticle = sb.descendants(matching: .any).matching(identifier: "grouped-widgets-reticle-view").firstMatch
+    if reticle.waitForExistence(timeout: 5) {
+      let f = reticle.frame
+      sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
+    }
+    sleep(4)
     snap("gallery")
+    let galleryOpen = sb.searchFields.firstMatch.exists || sb.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'Lexicist'")).count > 0
     // Lexicist in the gallery: as it is, after scrolling, or by search
     var found = tapWhere("label CONTAINS[c] %@", ["Lexicist"], timeout: 3)
     var tries = 0
-    while !found && tries < 4 {
+    while galleryOpen && !found && tries < 4 {
       let sheet = sb.scrollViews.firstMatch
       if sheet.exists { sheet.swipeUp() } else { sb.swipeUp() }
       sleep(2)
