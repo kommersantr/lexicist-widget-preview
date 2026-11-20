@@ -52,9 +52,22 @@ final class AddWidgetTests: XCTestCase {
     snap("lock", tree: false)
     sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).press(forDuration: 2.5)
     sleep(3)
-    tapWhere("label ==[c] %@ OR label ==[c] %@", ["Customize", "Customise"])
-    sleep(2)
-    tapWhere("label ==[c] %@", ["Lock Screen"], timeout: 2)
+    // Customize until the Lock Screen editor is open (the button sometimes ignores a tap during its animation)
+    let editorDone = sb.descendants(matching: .any).matching(identifier: "editing-done").firstMatch
+    for _ in 0..<4 {
+      if editorDone.exists { break }
+      let customize = sb.buttons.matching(identifier: "posterboard-customize-button").firstMatch
+      if customize.waitForExistence(timeout: 4) {
+        sleep(1)
+        let f = customize.frame
+        sb.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.midY)).tap()
+      } else {
+        sb.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).press(forDuration: 2.5)
+      }
+      sleep(3)
+      tapWhere("label ==[c] %@", ["Lock Screen"], timeout: 1)
+      _ = editorDone.waitForExistence(timeout: 3)
+    }
     snap("editing")
     // the widget area under the clock
     // a real touch in the middle of the "Add Widget" area (a tap on the element itself did not open the gallery)
