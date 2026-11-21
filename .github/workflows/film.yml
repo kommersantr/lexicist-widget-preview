@@ -1,5 +1,5 @@
 name: film
-# Films the Lexicist Lock Screen widget in the iOS Simulator as the hour turns 10:00, 11:00 and 12:00, for the App Store preview.
+# Films the Lexicist Lock Screen widget in the iOS Simulator as the hour turns 5:00, 6:00, 7:00, 8:00 and 9:00, for the App Store preview.
 on:
   push:
   workflow_dispatch:
@@ -21,11 +21,11 @@ jobs:
           xcrun simctl boot $UDID
           xcrun simctl bootstatus $UDID -b
           xcrun simctl ui $UDID appearance dark || true
-      - name: Clock to 09:45 UTC today, before the widget makes its timeline
+      - name: Clock to 04:45 UTC today, before the widget makes its timeline
         run: |
           sudo systemsetup -setusingnetworktime off || true
           D=$(date -u +%m%d); Y=$(date -u +%Y)
-          sudo date -u ${D}0945${Y}.00
+          sudo date -u ${D}0445${Y}.00
           date -u
       - name: Build
         run: |
@@ -50,7 +50,7 @@ jobs:
           xcrun simctl io $UDID recordVideo --codec=h264 --force out/hours.mp4 &
           REC=$!
           sleep 3
-          for H in 09 10 11; do
+          for H in 04 05 06 07 08; do
             sudo date -u ${D}${H}59${Y}.40
             sleep 8
             xcrun simctl io $UDID screenshot out/h${H}59.png || true
